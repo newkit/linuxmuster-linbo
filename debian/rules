@@ -49,7 +49,7 @@ E1000E_URL=http://downloadmirror.intel.com/15817/eng
 # qt
 QT_ARCHIVE=$(shell grep qt- debian/md5sums.src | awk '{ print $$2 }')
 QT_DIR=linbo_gui/$(shell echo $(QT_ARCHIVE) | sed -e 's/.tar.gz//')
-QT_URL=http://download.qt-project.org/official_releases/qt/4.8/4.8.5
+QT_URL=http://download.qt-project.org/official_releases/qt/4.8/4.8.6
 #QT_URL=$(LML_URL)
 
 # busybox
@@ -105,6 +105,16 @@ SYSLINUX_URL=$(LML_URL)
 CTORRENT_ARCHIVE=$(shell grep ctorrent- debian/md5sums.src | awk '{ print $$2 }')
 CTORRENT_DIR=src/$(shell echo $(CTORRENT_ARCHIVE) | sed -e 's/.tar.gz//')
 CTORRENT_URL=http://www.rahul.net/dholmes/ctorrent
+
+# libtorrent - required by rtorrent
+LIBTORRENT_ARCHIVE=$(shell grep libtorrent- debian/md5sums.src | awk '{ print $$2 }')
+LIBTORRENT_DIR=src/$(shell echo $(LIBTORRENT_ARCHIVE) | sed -e 's/.tar.gz//')
+LIBTORRENT_URL=http://libtorrent.rakshasa.no/downloads
+
+# rtorrent
+RTORRENT_ARCHIVE=$(shell grep rtorrent- debian/md5sums.src | awk '{ print $$2 }')
+RTORRENT_DIR=src/$(shell echo $(RTORRENT_ARCHIVE) | sed -e 's/.tar.gz//')
+RTORRENT_URL=http://libtorrent.rakshasa.no/downloads
 
 configure: configure-stamp
 configure-stamp:
@@ -212,6 +222,24 @@ configure-stamp:
 		echo "[1mUnpacking $(CTORRENT_ARCHIVE)...[0m" ; \
 		tar xf cache/$(CTORRENT_ARCHIVE) -C src; \
 		ln -sf ../$(CTORRENT_DIR) src/ctorrent; \
+	fi
+
+        # libtorrent
+	-@if [ ! -d $(LIBTORRENT_DIR) ]; then \
+		( [ -e cache/$(LIBTORRENT_ARCHIVE) ] || ( cd cache && wget $(LIBTORRENT_URL)/$(LIBTORRENT_ARCHIVE) ) ); \
+		( cd cache && grep $(LIBTORRENT_ARCHIVE) ../debian/md5sums.src | md5sum -c ); \
+		echo "[1mUnpacking $(LIBTORRENT_ARCHIVE)...[0m" ; \
+		tar xf cache/$(LIBTORRENT_ARCHIVE) -C src; \
+		ln -sf ../$(LIBTORRENT_DIR) src/libtorrent; \
+	fi
+
+	# rtorrent
+	-@if [ ! -d $(RTORRENT_DIR) ]; then \
+		( [ -e cache/$(RTORRENT_ARCHIVE) ] || ( cd cache && wget $(RTORRENT_URL)/$(RTORRENT_ARCHIVE) ) ); \
+		( cd cache && grep $(RTORRENT_ARCHIVE) ../debian/md5sums.src | md5sum -c ); \
+		echo "[1mUnpacking $(RTORRENT_ARCHIVE)...[0m" ; \
+		tar xf cache/$(RTORRENT_ARCHIVE) -C src; \
+		ln -sf ../$(RTORRENT_DIR) src/rtorrent; \
 	fi
 
 	# qt
@@ -362,6 +390,18 @@ build-stamp: configure-stamp
 		( cd $(CTORRENT_DIR) && ./configure --with-ssl=no && make && strip ctorrent ); \
 	fi
 
+        # libtorrent
+	-@if [ ! -e $(LIBTORRENT_DIR)/src/.libs/libtorrent.so ]; then \
+		echo "[1mBuilding libtorrent...[0m" ; \
+		( cd $(LIBTORRENT_DIR) && ./configure && make ); \
+	fi
+
+	# rtorrent
+	-@if [ ! -e $(RTORRENT_DIR)/rtorrent ]; then \
+		echo "[1mBuilding rtorrent...[0m" ; \
+		( cd $(RTORRENT_DIR)  && ./configure libtorrent_LIBS='-ltorrent' libtorrent_CFLAGS="-L$(CURDIR)/$(LIBTORRENT_DIR)/src/.libs -I$(CURDIR)/$(LIBTORRENT_DIR)/src" && make && cp src/.libs/rtorrent . && strip rtorrent ); \
+	fi
+
 	# qt
 	-@if [ ! -e $(QT_DIR)/bin/moc ]; then \
 		echo "[1mBuilding QT...[0m" ; \
@@ -436,7 +476,7 @@ clean:
 	dh_testdir
 	dh_testroot
 	rm -f build-stamp configure-stamp
-	dh_clean -d
+	#dh_clean -d
 
 install: build
 	dh_testdir

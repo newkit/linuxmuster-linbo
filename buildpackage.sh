@@ -8,7 +8,7 @@ rm -f debian/files
 rm -rf kernel/modules
 
 fakeroot dpkg-buildpackage \
-    -tc -sn -us -uc \
+    -tc -sn -us -uc -j4\
     -I".git" \
     -I".directory" \
     -Icache \
